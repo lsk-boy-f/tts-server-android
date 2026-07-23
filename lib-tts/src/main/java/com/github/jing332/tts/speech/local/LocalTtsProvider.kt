@@ -6,6 +6,7 @@ import com.github.jing332.database.entities.systts.source.LocalTtsSource
 import com.github.jing332.tts.exception.EngineException
 import com.github.jing332.tts.speech.EngineState
 import com.github.jing332.tts.speech.TextToSpeechProvider
+import com.github.jing332.tts.speech.resolveRequestedParameter
 import com.github.jing332.tts.synthesizer.SystemParams
 import com.github.michaelbull.result.onFailure
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -27,8 +28,8 @@ class LocalTtsProvider(
 
 
     private fun init(source: LocalTtsSource, params: SystemParams): AudioParams {
-        val speed = if (source.speed == LocalTtsSource.SPEED_FOLLOW) params.speed else source.speed
-        val pitch = if (source.pitch == LocalTtsSource.PITCH_FOLLOW) params.pitch else source.pitch
+        val speed = resolveRequestedParameter(source.speed, params.speed)
+        val pitch = resolveRequestedParameter(source.pitch, params.pitch)
         val volume =
             if (source.volume == LocalTtsSource.VOLUME_FOLLOW) params.volume else source.volume
 

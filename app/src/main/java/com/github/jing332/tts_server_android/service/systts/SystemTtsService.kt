@@ -20,6 +20,7 @@ import android.speech.tts.SynthesisRequest
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeechService
 import android.speech.tts.Voice
+import android.text.TextUtils
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
@@ -315,6 +316,8 @@ class SystemTtsService : TextToSpeechService(), IEventDispatcher {
         request: SynthesisRequest,
         callback: android.speech.tts.SynthesisCallback,
     ) {
+        logI(request.toLogText())
+
         val text = request.charSequenceText.toString().trim()
         if (text.isBlank()) {
             logger.debug { "Skip empty text request" }
@@ -342,7 +345,11 @@ class SystemTtsService : TextToSpeechService(), IEventDispatcher {
             }.value
             synthesizerJob = mScope.launch {
                 mTtsManager?.synthesize(
-                    params = SystemParams(text = request.charSequenceText.toString()),
+                    params = SystemParams(
+                        text = request.charSequenceText.toString(),
+                        speed = request.speechRate.takeIf { it > 0 }?.div(100f) ?: 1f,
+                        pitch = request.pitch.takeIf { it > 0 }?.div(100f) ?: 1f,
+                    ),
                     forceConfigId = cfgId,
                     callback = object :
                         com.github.jing332.tts.synthesizer.SynthesisCallback {
@@ -393,6 +400,34 @@ class SystemTtsService : TextToSpeechService(), IEventDispatcher {
             delay(5000)
             stopForeground(true)
             mNotificationDisplayed = false
+        }
+    }
+
+    private fun SynthesisRequest.toLogText(): String {
+        fun Any?.asLogText(): String = TextUtils.htmlEncode(
+            this?.toString()?.limitLength(200) ?: "null"
+        )
+
+        val requestParams = kotlin.runCatching {
+            params.keySet().sorted().joinToString(prefix = "{", postfix = "}") { key ->
+                "${key.asLogText()}=${params.get(key).asLogText()}"
+            }
+        }.getOrElse { error ->
+            "{unavailable=${error.message.asLogText()}}"
+        }
+
+        val speed = speechRate.takeIf { it > 0 }?.div(100f) ?: 1f
+        val requestPitch = pitch.takeIf { it > 0 }?.div(100f) ?: 1f
+        return buildString {
+            append("系统 TTS 请求参数")
+            append("<br>textLength=").append(charSequenceText.length)
+            append(", speechRate=").append(speechRate).append(" (").append(speed).append("x)")
+            append(", pitch=").append(pitch).append(" (").append(requestPitch).append("x)")
+            append("<br>language=").append(language.asLogText())
+            append(", country=").append(country.asLogText())
+            append(", variant=").append(variant.asLogText())
+            append(", voice=").append(voiceName.asLogText())
+            append("<br>params=").append(requestParams)
         }
     }
 

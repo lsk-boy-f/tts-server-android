@@ -4,6 +4,10 @@ import com.github.jing332.database.entities.systts.source.TextToSpeechSource
 import com.github.jing332.tts.synthesizer.SystemParams
 import java.io.InputStream
 
+internal fun resolveRequestedParameter(configured: Float, requested: Float): Float {
+    return if (configured == 0f || requested != 1f) requested else configured
+}
+
 abstract class TextToSpeechProvider<in T : TextToSpeechSource> : ILifeState {
     abstract var state: EngineState
     open fun isSyncPlay(source: T): Boolean {
