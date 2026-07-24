@@ -259,7 +259,7 @@ class PluginTtsUI : IConfigUI() {
                                 )
 
                                 runCatching {
-                                    vm.updateCustomUI(tts.locale, voice)
+                                    vm.updateCustomUI(voice)
                                 }.onFailure {
                                     context.displayErrorDialog(it)
                                 }

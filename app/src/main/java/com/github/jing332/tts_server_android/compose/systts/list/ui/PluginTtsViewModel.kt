@@ -21,6 +21,9 @@ import com.github.jing332.tts.speech.plugin.engine.TtsPluginUiEngineV2
 import com.github.jing332.tts_server_android.JsConsoleManager
 import com.github.jing332.tts_server_android.app
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicLong
 
 class PluginTtsViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
@@ -56,6 +59,11 @@ class PluginTtsViewModel(app: Application) : AndroidViewModel(app) {
 
     val locales = mutableStateListOf<Pair<String, String>>()
     val voices = mutableStateListOf<TtsPluginUiEngineV2.Voice>()
+    private val voiceUpdateMutex = Mutex()
+    private val voiceRequestVersion = AtomicLong()
+
+    @Volatile
+    private var loadedVoiceLocale: String? = null
 
     suspend fun load(
         context: Context,
@@ -91,14 +99,29 @@ class PluginTtsViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     suspend fun updateVoices(locale: String) {
-        val list = engine.getVoices(locale).toList()
-        withMain {
-            voices.clear()
-            voices.addAll(list)
+        val requestVersion = voiceRequestVersion.incrementAndGet()
+        loadedVoiceLocale = null
+
+        voiceUpdateMutex.withLock {
+            if (requestVersion != voiceRequestVersion.get()) return
+
+            val list = engine.getVoices(locale).toList()
+            if (requestVersion != voiceRequestVersion.get()) return
+
+            withMain {
+                if (requestVersion != voiceRequestVersion.get()) return@withMain
+
+                voices.clear()
+                voices.addAll(list)
+                loadedVoiceLocale = locale
+            }
         }
     }
 
-    fun updateCustomUI(locale: String, voice: String) {
+    fun updateCustomUI(voice: String) {
+        val locale = loadedVoiceLocale ?: return
+        if (voices.none { it.id == voice }) return
+
         try {
             engine.onVoiceChanged(locale, voice)
         } catch (_: NoSuchMethodException) {
